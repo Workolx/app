@@ -1,6 +1,7 @@
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify
 import os
 import shutil
+import re
 
 app = Flask(__name__)
 
@@ -39,14 +40,7 @@ def save_page(random_id):
     with open(verif_destination_file, 'r') as file:
         content = file.read()
 
-    old_section = """
-    <div class="shop-info">
-          <img src="https://via.placeholder.com/60" alt="Shop Icon" />
-          <div>
-            <h3>Тест<span>Очікується перевірка</span></h3>
-          </div>
-    </div>
-    """
+    old_section_pattern = re.compile(r'<div class="shop-info">.*?<img src="https://via.placeholder.com/60" alt="Shop Icon" />.*?<h3>Тест<span>Очікується перевірка</span></h3>.*?</div>', re.DOTALL)
     new_section = f"""
     <div class="shop-info">
         <img src="{avatar_url}" alt="Shop Icon" />
@@ -56,7 +50,7 @@ def save_page(random_id):
     </div>
     """
 
-    content = content.replace(old_section, new_section)
+    content = re.sub(old_section_pattern, new_section, content)
 
     with open(verif_destination_file, 'w') as file:
         file.write(content)
