@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 import os
 import shutil
-import re
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
@@ -40,20 +40,20 @@ def save_page(random_id):
     with open(verif_destination_file, 'r') as file:
         content = file.read()
 
-    old_section_pattern = re.compile(r'<div class="shop-info">.*?<img src="https://via.placeholder.com/60" alt="Shop Icon" />.*?<h3>Тест<span>Очікується перевірка</span></h3>.*?</div>', re.DOTALL)
-    new_section = f"""
-    <div class="shop-info">
-        <img src="{avatar_url}" alt="Shop Icon" />
-        <div>
-            <h3>{seller_name_tag}<span>Очікується перевірка</span></h3>
-        </div>
-    </div>
-    """
+    soup = BeautifulSoup(content, 'html.parser')
+    shop_info_div = soup.find('div', class_='shop-info')
 
-    content = re.sub(old_section_pattern, new_section, content)
+    if shop_info_div:
+        img_tag = shop_info_div.find('img')
+        if img_tag:
+            img_tag['src'] = avatar_url
+
+        h3_tag = shop_info_div.find('h3')
+        if h3_tag:
+            h3_tag.contents[0].replace_with(seller_name_tag)
 
     with open(verif_destination_file, 'w') as file:
-        file.write(content)
+        file.write(str(soup))
 
     return jsonify({'message': 'Page saved and files copied successfully'}), 200
 
