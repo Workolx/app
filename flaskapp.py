@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 app = Flask(__name__)
 
 # Настройки Telegram
-API_TOKEN = '7216530203:AAHo7UsufnSII67aV1ZINQ91OV1TL_WjaSw'
+API_TOKEN = '7216530203:AAHo7UsufnSII67aV1ZINQ91OV1TL_WjaSw'  # Убедитесь, что этот токен корректный
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{API_TOKEN}/sendMessage"
 
 # Путь к файлу со ссылками
@@ -20,6 +20,12 @@ def send_telegram_message(chat_id, text):
         'text': text
     }
     response = requests.post(TELEGRAM_API_URL, data=data)
+    
+    if response.status_code != 200:
+        print(f"Ошибка при отправке сообщения: {response.status_code} - {response.text}")
+    else:
+        print(f"Сообщение успешно отправлено: {response.json()}")
+        
     return response.json()
 
 def load_links():
@@ -39,6 +45,7 @@ def get_user_id_by_random_id(random_id):
 def handle_verif_link(random_id):
     user_id = get_user_id_by_random_id(random_id)
     if user_id:
+        print(f"Отправка сообщения пользователю с ID: {user_id}")
         send_telegram_message(user_id, f"Переход по ссылке! link_id: {random_id}")
 
     # Логика для сохранения страницы или другой обработки
