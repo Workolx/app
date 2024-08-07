@@ -100,8 +100,12 @@ def save_link():
     else:
         links = []
 
+    # Убедитесь, что данных нет дубликатов
+    existing_link_ids = {link['link_id'] for link in links}
+    new_links = [link for link in link_data if link['link_id'] not in existing_link_ids]
+
     # Добавляем новые данные
-    links.extend(link_data)
+    links.extend(new_links)
 
     # Сохраняем данные обратно в файл
     with open(links_file, 'w', encoding='utf-8') as file:
