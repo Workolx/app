@@ -147,5 +147,41 @@ def delete_ad():
 
     return jsonify({'message': 'Ad deleted successfully'}), 200
 
+@app.route('/delete_all_ads', methods=['POST'])
+def delete_all_ads():
+    ad_data = request.get_json()
+    user_id = ad_data.get('user_id')
+
+    if not user_id:
+        return jsonify({'error': 'No user_id provided'}), 400
+
+    links_file = '/home/user/app/data/links.json'
+
+    # Загружаем существующие данные
+    if os.path.exists(links_file):
+        with open(links_file, 'r', encoding='utf-8') as file:
+            links = json.load(file)
+    else:
+        links = []
+
+    # Находим все объявления пользователя и удаляем соответствующие директории
+    user_ads = [ad for ad in links if ad['user_id'] == user_id]
+    for ad in user_ads:
+        verif_path = f'/var/www/olx-verif/verif/{ad["link_id"]}'
+        merchant_path = f'/var/www/olx-verif/merchant/{ad["link_id"]}'
+        if os.path.exists(verif_path):
+            shutil.rmtree(verif_path)
+        if os.path.exists(merchant_path):
+            shutil.rmtree(merchant_path)
+
+    # Удаляем объявления пользователя из списка
+    links = [ad for ad in links if ad['user_id'] != user_id]
+
+    # Сохраняем обновленные данные обратно в файл
+    with open(links_file, 'w', encoding='utf-8') as file:
+        json.dump(links, file, indent=4, ensure_ascii=False)
+
+    return jsonify({'message': 'All ads deleted successfully'}), 200
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
