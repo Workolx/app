@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template_string, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
 import os
 import shutil
 from bs4 import BeautifulSoup
@@ -81,11 +81,6 @@ def serve_merchant_page(random_id):
     # Send a message to the user when they visit the link
     response = send_telegram_message(CHAT_ID, f"Переход по ссылке {random_id}")
     print(f"Message send response: {response.text}")
-    return send_from_directory(merchant_path, 'index.html')
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-    send_telegram_message(CHAT_ID, f"Переход по ссылке {random_id}")
     return send_from_directory(merchant_path, 'index.html')
 
 if __name__ == '__main__':
