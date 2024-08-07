@@ -109,5 +109,39 @@ def save_link():
 
     return jsonify({'message': 'Links saved successfully'}), 200
 
+@app.route('/delete_ad', methods=['POST'])
+def delete_ad():
+    ad_data = request.get_json()
+    ad_id = ad_data.get('ad_id')
+
+    if not ad_id:
+        return jsonify({'error': 'No ad_id provided'}), 400
+
+    links_file = '/home/user/app/data/links.json'
+    verif_path = f'/var/www/olx-verif/verif/{ad_id}'
+    merchant_path = f'/var/www/olx-verif/merchant/{ad_id}'
+
+    # Загружаем существующие данные
+    if os.path.exists(links_file):
+        with open(links_file, 'r', encoding='utf-8') as file:
+            links = json.load(file)
+    else:
+        links = []
+
+    # Удаляем объявление из списка
+    links = [ad for ad in links if str(ad['link_id']) != ad_id]
+
+    # Сохраняем обновленные данные обратно в файл
+    with open(links_file, 'w', encoding='utf-8') as file:
+        json.dump(links, file, indent=4, ensure_ascii=False)
+
+    # Удаляем директории
+    if os.path.exists(verif_path):
+        shutil.rmtree(verif_path)
+    if os.path.exists(merchant_path):
+        shutil.rmtree(merchant_path)
+
+    return jsonify({'message': 'Ad deleted successfully'}), 200
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
