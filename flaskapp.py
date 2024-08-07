@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 app = Flask(__name__)
 
 # Настройки Telegram
-API_TOKEN = 'YOUR_TELEGRAM_BOT_API_TOKEN'
+API_TOKEN = '7216530203:AAHo7UsufnSII67aV1ZINQ91OV1TL_WjaSw'
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{API_TOKEN}/sendMessage"
 
 # Путь к файлу со ссылками
