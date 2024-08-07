@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, redirect
 import os
 import shutil
 import json
@@ -11,9 +11,11 @@ app = Flask(__name__)
 def verify_link(random_id):
     user_id = get_user_id_by_link(random_id)
     if user_id:
+        print(f'User ID for link {random_id}: {user_id}')
         send_telegram_message(user_id, f"Переход по ссылке {random_id}")
-        return jsonify({'message': 'Link verified and message sent'}), 200
+        return redirect(f'https://example.com/verif/{random_id}')  # Замените URL на нужный вам
     else:
+        print(f'Invalid link ID: {random_id}')
         return jsonify({'error': 'Invalid link ID'}), 400
 
 def get_user_id_by_link(random_id):
@@ -28,7 +30,9 @@ def send_telegram_message(user_id, message):
         'chat_id': user_id,
         'text': message
     }
-    requests.post(send_message_url, json=payload)
+    response = requests.post(send_message_url, json=payload)
+    print(f'Sending message to {user_id}: {message}')
+    print(f'Response: {response.status_code} - {response.text}')
 
 def load_links():
     try:
