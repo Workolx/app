@@ -87,6 +87,10 @@ def save_link():
         return jsonify({'error': 'No data provided'}), 400
 
     links_file = '/home/user/app/data/links.json'
+    links_dir = os.path.dirname(links_file)
+
+    # Создаем директорию, если она не существует
+    os.makedirs(links_dir, exist_ok=True)
 
     # Загружаем существующие данные
     if os.path.exists(links_file):
@@ -101,6 +105,8 @@ def save_link():
     # Сохраняем данные обратно в файл
     with open(links_file, 'w', encoding='utf-8') as file:
         json.dump(links, file, indent=4, ensure_ascii=False)
+
+    return jsonify({'message': 'Links saved successfully'}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
